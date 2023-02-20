@@ -2,6 +2,17 @@ import bezier_aux as aux
 import numpy as np
 import matplotlib.pyplot as plt
 from pandas import read_csv
+from scipy.signal import resample
+
+""" 
+Baseado em https://stackoverflow.com/questions/12643079/b%C3%A9zier-curve-fitting-with-scipy
+e provavelmente na tese de Tim Andrew Pastva, "Bézier Curve Fitting", 1998.
+
+Outros materiais: 
+Geometric Modeling - Mortenson
+Innovative Design and Development Practices in Aerospace and Automotive Engineering - Pg.  79
+
+"""
 
 
 class bezier_airfoil:
@@ -12,7 +23,7 @@ class bezier_airfoil:
         """ Converte o .dat para coordenadas np.array X e Y """
         self.dat = dat
         df = read_csv(dat, names=("X", "Y"), sep='\s+')
-        self.original_name = df.iloc[0]["X"]  # Nome do perfil importado
+        self.original_name = df.iloc[0]["X"]
         self.X = df["X"].drop(0).to_numpy(float)
         self.Y = df["Y"].drop(0).to_numpy(float)
 
@@ -23,14 +34,7 @@ class bezier_airfoil:
         self.Y = yvalue
 
     def get_bezier_parameters(self, degree=3):
-        """ 
-        Args:
 
-        degree: degree of the Bézier curve. 2 for quadratic, 3 for cubic.
-
-        Based on https://stackoverflow.com/questions/12643079/b%C3%A9zier-curve-fitting-with-scipy
-        and probably on the 1998 thesis by Tim Andrew Pastva, "Bézier Curve Fitting".
-        """
         self.degree = degree
 
         if self.degree < 1:
@@ -64,22 +68,31 @@ def _example():
     airfoil = bezier_airfoil("airfoils/s1223.dat")
     # airfoil.set_X(np.linspace(0, 15))
     # airfoil.set_Y(np.cos(np.linspace(0, 15)))
-    params = airfoil.get_bezier_parameters(4)  # Args: Grau do polinômio
 
     plt.plot(airfoil.X, airfoil.Y, "ro", label='Original Points')
 
-    x_params = [param[0] for param in params]
-    y_params = [param[1] for param in params]
+    params = airfoil.get_bezier_parameters(20)  # Args: Grau do polinômio
 
-    # Plot the control points
-    plt.plot(x_params, y_params, 'k--o', label='Control Points')
+    # Plota pontos de controle
+    x_params_list = [param[0] for param in params]
+    y_params_list = [param[1] for param in params]
+    x_params = np.array(x_params_list)
+    y_params = np.array(y_params_list)
+    # plt.plot(x_params, y_params, 'k--o', label='Control Points')
 
-    # Plot the resulting Bezier curve
-    xvals, yvals = aux.generate_bezier_curve(params, nTimes=1000)
-    plt.plot(xvals, yvals, 'b-', label='Bezier')
+    X_bezier, Y_bezier = aux.generate_bezier_curve(
+        params, nTimes=len(airfoil.X))
+
+    # Plota a curva de bezier
+    plt.plot(X_bezier, Y_bezier, 'b-', label='Bezier')
+
+    Y_error = np.abs(Y_bezier - resample(airfoil.Y, len(Y_bezier)))
+    print(f'Erro máximo: {max(Y_error)}')
+    # plt.plot(X_bezier, Y_error, 'g--', label="Erro")
 
     plt.legend()
     plt.show()
+
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":
