@@ -1,0 +1,13 @@
+LOAD airfoils/s1223.dat
+s1223
+PANE
+OPER
+Visc 1000000
+PACC
+src/xfoil_runner/data/polar_file.txt
+
+ITER 100
+ASeq 0 10 0.25
+
+
+quit
