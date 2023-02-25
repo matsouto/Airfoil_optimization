@@ -2,6 +2,8 @@ import os
 import subprocess
 import numpy as np
 import sys
+import matplotlib.pyplot as plt
+import collections
 
 """
 Baseado em https://github.com/JARC99/xfoil-runner e https://www.youtube.com/watch?v=zGZin_PPLdc.
@@ -20,7 +22,7 @@ def run_xfoil(airfoil_path, airfoil_name, alpha_i=0, alpha_f=10, alpha_step=0.25
     elif sys.platform.startswith('linux'):
         XFOIL_BIN = "xfoil"
 
-    """XFOIL input file writer"""
+    """ Gera o arquivo de input para o XFOIL"""
     if os.path.exists("data/polar_file.txt"):
         os.remove("data/polar_file.txt")
 
@@ -45,8 +47,40 @@ def run_xfoil(airfoil_path, airfoil_name, alpha_i=0, alpha_f=10, alpha_step=0.25
         "src/xfoil_runner/data/polar_file.txt", skiprows=12)
 
 
+def plot_polar(polar_path="src/xfoil_runner/data/polar_file.txt"):
+    """
+    Plot Cl/alpha, Cd/alpha and Cl/Cd and Cl^3/Cd^2 from a certain analysis.
+    :param polar_txt: .txt file where xfoil polar data is stored.
+    """
+    with open(polar_path) as file:
+        data = np.array([np.array([float(x) for x in line.split()])
+                        for line in file.readlines()[12:]])
+        alpha = data[:, 0]
+        Cl = data[:, 1]
+        Cd = data[:, 2]
+        Cl3Cd2 = Cl**3 / Cd**2
+
+    fig, axs = plt.subplots(2, 2)
+
+    axs[0, 0].plot(alpha[:37], Cl[:37], color='limegreen')
+    axs[0, 0].set(xlabel=r'$\alpha$ [-]', ylabel='$C_{l}$')
+
+    axs[0, 1].plot(alpha[:37], Cd[:37], color='mediumblue')
+    axs[0, 1].set(xlabel=r'$\alpha$ [-]', ylabel='$C_{d}$')
+
+    axs[1, 0].plot(Cd[:37], Cl[:37], color='orangered')
+    axs[1, 0].set(xlabel=r'$C_{d}$', ylabel='$C_{l}$')
+
+    axs[1, 1].plot(alpha[:37], Cl3Cd2[:37], color='black')
+    axs[1, 1].set(xlabel=r'$\alpha$',
+                  ylabel='$C_{l}^{3}/C_{d}^{2}$ [-]')
+
+    plt.show()
+
+
 def _example():
     run_xfoil("airfoils/s1223.dat", "s1223")
+    plot_polar()
 
 
 """Se esse arquivo for executado, rode _example()"""
