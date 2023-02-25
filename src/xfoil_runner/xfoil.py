@@ -23,8 +23,8 @@ def run_xfoil(airfoil_path, airfoil_name, alpha_i=0, alpha_f=10, alpha_step=0.25
         XFOIL_BIN = "xfoil"
 
     """ Gera o arquivo de input para o XFOIL"""
-    if os.path.exists("data/polar_file.txt"):
-        os.remove("data/polar_file.txt")
+    if os.path.exists("src/xfoil_runner/data/polar_file.txt"):
+        os.remove("src/xfoil_runner/data/polar_file.txt")
 
     with open("src/xfoil_runner/data/input_file.in", 'w') as file:
         file.write(f"LOAD {airfoil_path}\n")
@@ -62,16 +62,16 @@ def plot_polar(polar_path="src/xfoil_runner/data/polar_file.txt"):
 
     fig, axs = plt.subplots(2, 2)
 
-    axs[0, 0].plot(alpha[:37], Cl[:37], color='limegreen')
+    axs[0, 0].plot(alpha, Cl, color='limegreen')
     axs[0, 0].set(xlabel=r'$\alpha$ [-]', ylabel='$C_{l}$')
 
-    axs[0, 1].plot(alpha[:37], Cd[:37], color='mediumblue')
+    axs[0, 1].plot(alpha, Cd, color='mediumblue')
     axs[0, 1].set(xlabel=r'$\alpha$ [-]', ylabel='$C_{d}$')
 
-    axs[1, 0].plot(Cd[:37], Cl[:37], color='orangered')
+    axs[1, 0].plot(Cd, Cl, color='orangered')
     axs[1, 0].set(xlabel=r'$C_{d}$', ylabel='$C_{l}$')
 
-    axs[1, 1].plot(alpha[:37], Cl3Cd2[:37], color='black')
+    axs[1, 1].plot(alpha, Cl3Cd2, color='black')
     axs[1, 1].set(xlabel=r'$\alpha$',
                   ylabel='$C_{l}^{3}/C_{d}^{2}$ [-]')
 

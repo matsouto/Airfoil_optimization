@@ -45,7 +45,7 @@ class bezier_airfoil:
 
     """Calcula os parâmetros de bezier"""
 
-    def get_bezier_parameters(self, degree=3):
+    def get_bezier_cp(self, degree=3):
 
         self.degree = degree
 
@@ -64,13 +64,13 @@ class bezier_airfoil:
         M = aux.bmatrix(T, self.degree)
         points = np.array(list(zip(self.X, self.Y)))
 
-        parameters = aux.least_square_fit(points, M).tolist()
-        parameters[0] = [self.X[0], self.Y[0]]
-        parameters[len(parameters)-1] = [self.X[len(self.X)-1],
-                                         self.Y[len(self.Y)-1]]
+        cp = aux.least_square_fit(points, M).tolist()
+        cp[0] = [self.X[0], self.Y[0]]
+        cp[len(cp)-1] = [self.X[len(self.X)-1],
+                         self.Y[len(self.Y)-1]]
 
-        self.parameters = parameters
-        return self.parameters
+        self.cp = cp
+        return self.cp
 
     """Roda simulação pelo XFOIL"""
 
@@ -119,7 +119,7 @@ def _example():
 
     plt.plot(airfoil.X, airfoil.Y, "r", label='Original Points')
 
-    params = airfoil.get_bezier_parameters(20)  # Args: Grau do polinômio
+    params = airfoil.get_bezier_cp(20)  # Args: Grau do polinômio
     # params[3] = [0.5, 0.23]
     # print(params)
 
@@ -146,7 +146,6 @@ def _example():
 
     # airfoil.simulate()
     # plot_polar()
-
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":
