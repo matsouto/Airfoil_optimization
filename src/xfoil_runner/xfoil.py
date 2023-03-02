@@ -3,7 +3,6 @@ import subprocess
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-import collections
 
 """
 Baseado em https://github.com/JARC99/xfoil-runner e https://www.youtube.com/watch?v=zGZin_PPLdc.

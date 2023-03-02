@@ -1,4 +1,4 @@
-import bezier_aux as aux
+import aux
 import numpy as np
 import matplotlib.pyplot as plt
 from pandas import read_csv
@@ -50,15 +50,15 @@ class bezier_airfoil:
         self.degree = degree
 
         if self.degree < 1:
-            raise ValueError('degree must be 1 or greater.')
+            raise ValueError('Grau precisa ser 1 ou maior.')
 
         if len(self.X) != len(self.Y):
-            raise ValueError('X and Y must be of the same length.')
+            raise ValueError('X e Y precisam ter o mesmo tamanho.')
 
         if len(self.X) < self.degree + 1:
-            raise ValueError(f'There must be at least {self.degree + 1} points to '
-                             f'determine the parameters of a degree {self.degree} curve. '
-                             f'Got only {len(self.X)} points.')
+            raise ValueError(f'É necessário ter pelo menos {self.degree + 1} pontos para '
+                             f'determinar os parâmetros de uma curva de grau {self.degree}. '
+                             f'Foram dados apenas {len(self.X)} pontos.')
 
         T = np.linspace(0, 1, len(self.X))
         M = aux.bmatrix(T, self.degree)
@@ -77,6 +77,7 @@ class bezier_airfoil:
     def simulate(self, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
         run_xfoil(self.airfoil_path, self.original_name,
                   alpha_i, alpha_f, alpha_step, Re, n_iter)
+        self.sim = True
 
     def get_opt_params(self, polar_path="src/xfoil_runner/data/polar_file.txt"):
 
@@ -108,6 +109,22 @@ class bezier_airfoil:
 
         return ClCd, Cl3Cd2, alpha_range
 
+    def save_as_dat_from_bezier(self, name="generated_airfoil"):
+        """ Salva o perfil de bezier como um arquivo .dat"""
+
+        self.X_bezier, self.Y_bezier = aux.generate_bezier_curve(
+            self.cp, nTimes=len(self.X))
+
+        data = np.array([np.around(self.X_bezier, 6).astype(
+            'str'), np.around(self.Y_bezier, 6).astype('str')]).transpose()
+
+        if '.dat' not in name:
+            name += '.dat'
+
+        header = "Airfoil"
+        np.savetxt(f'airfoils/{name}', data,
+                   header=header, comments="", fmt="%s")
+
     def __str__(self):
         return self.original_name
 
@@ -119,7 +136,7 @@ def _example():
 
     plt.plot(airfoil.X, airfoil.Y, "r", label='Original Points')
 
-    params = airfoil.get_bezier_cp(20)  # Args: Grau do polinômio
+    params = airfoil.get_bezier_cp(3)  # Args: Grau do polinômio
     # params[3] = [0.5, 0.23]
     # print(params)
 
@@ -144,8 +161,11 @@ def _example():
     plt.legend()
     plt.show()
 
+    airfoil.save_as_dat_from_bezier()
+
     # airfoil.simulate()
     # plot_polar()
+
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":
