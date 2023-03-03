@@ -20,14 +20,10 @@ class bezier_airfoil:
 
     all = []
 
-    def __init__(self, airfoil_path: str):
-        """ Converte o .dat para coordenadas np.array X e Y """
-        self.airfoil_path = airfoil_path
-        df = read_csv(airfoil_path, names=("X", "Y"), sep='\s+')
-        self.original_name = df.iloc[0]["X"]
-        self.X = df["X"].drop(0).to_numpy(float)
-        self.Y = df["Y"].drop(0).to_numpy(float)
+    def __init__(self):
 
+        self.X = None
+        self.Y = None
         self.sim = False  # Informa se o perfil já foi simulado
         self.alpha = None
         self.Cl = None
@@ -37,16 +33,22 @@ class bezier_airfoil:
         self.stall_angle = None
         self.alpha_range = None
 
+    def set_coords_from_dat(self, airfoil_path: str):
+        """ Converte o .dat para coordenadas np.array X e Y """
+        self.airfoil_path = airfoil_path
+        df = read_csv(airfoil_path, names=("X", "Y"), sep='\s+')
+        self.original_name = df.iloc[0]["X"]
+        self.X = df["X"].drop(0).to_numpy(float)
+        self.Y = df["Y"].drop(0).to_numpy(float)
+
     def set_X(self, xvalue):
         self.X = xvalue
 
     def set_Y(self, yvalue):
         self.Y = yvalue
 
-    """Calcula os parâmetros de bezier"""
-
-    def get_bezier_cp(self, degree=3):
-
+    def get_bezier_cp(self, degree=12):
+        """Calcula os parâmetros de bezier"""
         self.degree = degree
 
         if self.degree < 1:
@@ -72,9 +74,8 @@ class bezier_airfoil:
         self.cp = cp
         return self.cp
 
-    """Roda simulação pelo XFOIL"""
-
     def simulate(self, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
+        """Roda simulação pelo XFOIL"""
         run_xfoil(self.airfoil_path, self.original_name,
                   alpha_i, alpha_f, alpha_step, Re, n_iter)
         self.sim = True
@@ -109,6 +110,8 @@ class bezier_airfoil:
 
         return ClCd, Cl3Cd2, alpha_range
 
+    """Gera um .dat a partir dos pontos de controle"""
+
     def save_as_dat_from_bezier(self, name="generated_airfoil"):
         """ Salva o perfil de bezier como um arquivo .dat"""
 
@@ -130,32 +133,33 @@ class bezier_airfoil:
 
 
 def _example():
-    airfoil = bezier_airfoil("airfoils/s1223.dat")
+    airfoil = bezier_airfoil()
+    airfoil.set_coords_from_dat("airfoils/s1223.dat")
     # airfoil.set_X(np.linspace(0, 15))
     # airfoil.set_Y(np.cos(np.linspace(0, 15)))
 
     plt.plot(airfoil.X, airfoil.Y, "r", label='Original Points')
 
-    params = airfoil.get_bezier_cp(3)  # Args: Grau do polinômio
-    # params[3] = [0.5, 0.23]
-    # print(params)
+    cntr_points = airfoil.get_bezier_cp(18)  # Args: Grau do polinômio
+    print(cntr_points)
+    # cntr_points[1] = [0.9357, 0.03]
 
     """Plota pontos de controle"""
-    x_params_list = [param[0] for param in params]
-    y_params_list = [param[1] for param in params]
-    x_params = np.array(x_params_list)
-    y_params = np.array(y_params_list)
+    x_cntr_points_list = [param[0] for param in cntr_points]
+    y_cntr_points_list = [param[1] for param in cntr_points]
+    x_cntr_points = np.array(x_cntr_points_list)
+    y_cntr_points = np.array(y_cntr_points_list)
 
-    # plt.plot(x_params, y_params, 'k--o', label='Control Points')
+    # plt.plot(x_cntr_points, y_cntr_points, 'k--o', label='Control Points')
 
     X_bezier, Y_bezier = aux.generate_bezier_curve(
-        params, nTimes=len(airfoil.X))
+        cntr_points, nTimes=len(airfoil.X))
 
     # Plota a curva de bezier
     plt.plot(X_bezier, Y_bezier, 'b-', label='Bezier')
 
-    Y_error = np.abs(Y_bezier - resample(airfoil.Y, len(Y_bezier)))
-    print(f'Erro máximo: {max(Y_error)}')
+    # Y_error = np.abs(Y_bezier - resample(airfoil.Y, len(Y_bezier)))
+    # print(f'Erro máximo: {max(Y_error)}')
     # plt.plot(X_bezier, Y_error, 'g--', label="Erro")
 
     plt.legend()
@@ -165,7 +169,6 @@ def _example():
 
     # airfoil.simulate()
     # plot_polar()
-
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":
