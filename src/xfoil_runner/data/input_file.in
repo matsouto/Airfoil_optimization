@@ -1,5 +1,5 @@
-LOAD airfoils/s1223.dat
-s1223
+LOAD airfoils/generated_airfoil.dat
+Gen_Airfoil
 PANE
 OPER
 Visc 1000000

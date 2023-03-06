@@ -48,32 +48,42 @@ class bezier_airfoil:
     def set_Y_lower(self, yvalue):
         self.Y_lower = yvalue
 
-    def get_bezier_cp(self, degree=8):
-        """Calcula os parâmetros de bezier"""
-        self.degree = degree
+    def get_bezier_cp(self, degree_upper: int, degree_lower: int):
+        """
+        Calcula os parâmetros de bezier.
 
-        if self.degree < 1:
+        Recebe graus diferentes para o intra e extradorso já que 
+        para perfis arquiados, o intradorso necessita de mais pontos que o
+        extradorso, assim, pode-se diminuir a quantidade de pontos totais 
+        e melhorar a velocidade de convergência do algoritmo otimizador.
+        """
+
+        self.degree_upper = degree_upper
+        self.degree_lower = degree_lower
+
+        if (self.degree_upper or self.degree_lower) < 1:
             raise ValueError('Grau precisa ser 1 ou maior.')
 
         if len(self.X) != len(self.Y):
             raise ValueError('X e Y precisam ter o mesmo tamanho.')
 
-        if len(self.X) < self.degree + 1:
+        if len(self.X) < (self.degree_lower + 1 or self.degree_upper+1):
             raise ValueError(f'É necessário ter pelo menos {self.degree + 1} pontos para '
                              f'determinar os parâmetros de uma curva de grau {self.degree}. '
                              f'Foram dados apenas {len(self.X)} pontos.')
 
         T = np.linspace(0, 1, len(self.X_upper))
-        M = aux.bmatrix(T, self.degree)
+        M_upper = aux.bmatrix(T, self.degree_upper)
         points_upper = np.array(list(zip(self.X_upper, self.Y_upper)))
         points_lower = np.array(list(zip(self.X_lower, self.Y_lower)))
 
-        cp_upper = aux.least_square_fit(points_upper, M).tolist()
+        cp_upper = aux.least_square_fit(points_upper, M_upper).tolist()
         cp_upper[0] = [self.X_upper[0], self.Y_upper[0]]
         cp_upper[len(cp_upper)-1] = [self.X_upper[len(self.X_upper)-1],
                                      self.Y_upper[len(self.Y_upper)-1]]
 
-        cp_lower = aux.least_square_fit(points_lower, M).tolist()
+        M_lower = aux.bmatrix(T, self.degree_lower)
+        cp_lower = aux.least_square_fit(points_lower, M_lower).tolist()
         cp_lower[0] = [self.X_lower[0], self.Y_lower[0]]
         cp_lower[len(cp_lower)-1] = [self.X_lower[len(self.X_lower)-1],
                                      self.Y_lower[len(self.Y_lower)-1]]
@@ -157,11 +167,10 @@ def _example():
     plt.plot(airfoil.X_lower, airfoil.Y_lower,
              "b", label='Original Points - Lower')
 
-    cp_upper, cp_lower = airfoil.get_bezier_cp(10)  # Args: Grau do polinômio
-    print(cp_upper)
-    print()
+    cp_upper, cp_lower = airfoil.get_bezier_cp(
+        8, 16)  # Args: Grau do polinômio
+    # cp_lower[7] = [cp_lower[7][0]+0.1, cp_lower[7][1]]
     print(cp_lower)
-    # cntr_points[1] = [0.9357, 0.03]
 
     """Gera listas com os pontos de controle"""
     x_cp_list_upper = [i[0] for i in cp_upper]
@@ -182,11 +191,15 @@ def _example():
     """Plota a curva de bezier"""
     X_bezier_upper, Y_bezier_upper = aux.generate_bezier_curve(
         cp_upper, nTimes=len(airfoil.X_upper))
-    plt.plot(X_bezier_upper, Y_bezier_upper, 'g--', label='Bezier')
+    # plt.plot(X_bezier_upper, Y_bezier_upper, 'g--', label='Bezier')
 
     X_bezier_lower, Y_bezier_lower = aux.generate_bezier_curve(
         cp_lower, nTimes=len(airfoil.X_lower))
-    plt.plot(X_bezier_lower, Y_bezier_lower, 'g--')
+    plt.plot(X_bezier_lower, Y_bezier_lower, 'g--', label='Bezier')
+
+    X_bezier = np.concatenate((X_bezier_upper, X_bezier_lower))
+    Y_bezier = np.concatenate((Y_bezier_upper, Y_bezier_lower))
+    # plt.plot(X_bezier, Y_bezier, 'g--', label='Bezier')
 
     plt.legend()
     plt.xlabel("x/c")
@@ -196,10 +209,10 @@ def _example():
     Y_error = np.abs(Y_bezier_lower -
                      resample(airfoil.Y_lower, len(Y_bezier_lower)))
     print(f'Erro máximo (Curva inferior): {max(Y_error)}')
-    plt.figure()
-    plt.plot(X_bezier_lower, Y_error, 'g--', label="Erro")
-    plt.title("Erro em Y (Curva inferior)")
-    plt.xlabel("x/c")
+    # plt.figure()
+    # plt.plot(X_bezier_lower, Y_error, 'g--', label="Erro")
+    # plt.title("Erro em Y (Curva inferior)")
+    # plt.xlabel("x/c")
 
     plt.show()
 
@@ -207,6 +220,7 @@ def _example():
 
     # airfoil.simulate()
     # plot_polar()
+
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":

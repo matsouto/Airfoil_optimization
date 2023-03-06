@@ -78,7 +78,7 @@ def plot_polar(polar_path="src/xfoil_runner/data/polar_file.txt"):
 
 
 def _example():
-    run_xfoil("airfoils/s1223.dat", "s1223")
+    run_xfoil("airfoils/generated_airfoil.dat", "Gen_Airfoil")
     plot_polar()
 
 

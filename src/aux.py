@@ -8,7 +8,7 @@ import numpy as np
 
 
 def bmatrix(T, degree):
-    """ Bernstein matrix for Bézier curves. """
+    """Bernstein matrix for Bézier curves"""
     return np.matrix([[bernstein_poly(i, degree, t) for i in range(degree + 1)] for t in T])
 
 
@@ -18,9 +18,7 @@ def least_square_fit(points, M):
 
 
 def bernstein_poly(i, n, t):
-    """
-     The Bernstein polynomial of n, i as a function of t
-    """
+    """Polinômio de Bernstein"""
     return comb(n, i) * (t**i) * (1 - t)**(n-i)
 
 
