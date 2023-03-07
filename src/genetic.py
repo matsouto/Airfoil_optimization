@@ -4,7 +4,7 @@ from random import uniform
 import numpy as np
 import matplotlib.pyplot as plt
 
-"""Baseado em https://github.com/ashokolarov/Genetic-airfoil, 
+"""Baseado em https://github.com/ashokolarov/Genetic-airfoil,
 no paper Two-dimensional airfoil shape optimization for airfoils at low speeds - Ruxandra Mihaela Botez
 e no vídeo https://www.youtube.com/watch?v=nhT56blfRpE"""
 
@@ -29,8 +29,8 @@ class genetic_algorithm:
         e agiliza o processo de otimização.
         """
 
-        skip_cp_upper = 1  # Quantos pontos de controle vão ser inalterados
-        skip_cp_lower = 3
+        skip_cp_upper = 2  # Quantos pontos de controle vão ser inalterados
+        skip_cp_lower = 4
 
         if (skip_cp_upper > self.degree_upper//2) or (skip_cp_lower > self.degree_lower//2):
             raise ValueError(
@@ -65,7 +65,47 @@ class genetic_algorithm:
         return genome_upper, genome_lower
 
     def generate_population(self, pop_size: int):
-        return [self.generate_genome() for _ in range(pop_size)]
+        population = []
+        for _ in range(pop_size):
+            population.append(self.generate_genome())
+        return population
+
+    def plot_population(self, population: list):
+        """Define o layout a partir da raiz quadrada do tamanho da população"""
+        total_subplots = len(population)
+        cols_subplots = int(total_subplots**0.5)
+        rows_subplots = total_subplots//cols_subplots
+
+        if total_subplots % cols_subplots != 0:
+            rows_subplots += 1
+
+        position = range(1, total_subplots + 1)
+        fig = plt.figure(1, figsize=(14, 5))
+        plt.title(f"População de {len(population)} genomas")
+        plt.axis('off')
+
+        """Gera o perfil original para demonstração"""
+        X_bezier_upper, Y_bezier_upper = aux.generate_bezier_curve(
+            self.initial_cp_upper)
+
+        X_bezier_lower, Y_bezier_lower = aux.generate_bezier_curve(
+            self.initial_cp_lower)
+
+        for k in range(total_subplots):
+
+            ax = fig.add_subplot(rows_subplots, cols_subplots, position[k])
+            ax.yaxis.set_visible(False)
+            X_upper, Y_upper = aux.generate_bezier_curve(
+                population[k][0])
+            X_lower, Y_lower = aux.generate_bezier_curve(
+                population[k][1])
+            ax.plot(X_upper, Y_upper, 'b--')
+            ax.plot(X_lower, Y_lower, 'b--')
+
+            # """Plota o perfil original"""
+            ax.plot(X_bezier_upper, Y_bezier_upper, 'g')
+            ax.plot(X_bezier_lower, Y_bezier_lower, 'g')
+        plt.show()
 
     def run_opt_genetic(cp):
         pass
@@ -77,35 +117,12 @@ def _example():
     initial_airfoil.set_coords_from_dat("airfoils/s1223.dat")
     initial_airfoil.get_bezier_cp(8, 16)
 
-    plt.figure(figsize=(9, 3))
-
-    X_bezier_upper, Y_bezier_upper = aux.generate_bezier_curve(
-        initial_airfoil.cp_upper)
-    plt.plot(X_bezier_upper, Y_bezier_upper, 'g',
-             label=f"{initial_airfoil.original_name} - Bezier")
-
-    X_bezier_lower, Y_bezier_lower = aux.generate_bezier_curve(
-        initial_airfoil.cp_lower)
-    plt.plot(X_bezier_lower, Y_bezier_lower, 'g')
-
     gen = genetic_algorithm(initial_airfoil, MAX_CHANGE=0.04)
+    # plt.figure(figsize=(9, 3))
 
-    genome_upper, genome_lower = gen.generate_genome()
-
-    X, Y = aux.generate_bezier_curve(
-        genome_upper)
-    plt.plot(X, Y, 'b--', label='Genome')
-
-    X, Y = aux.generate_bezier_curve(
-        genome_lower)
-    plt.plot(X, Y, 'b--')
-
-    plt.legend()
-    plt.xlabel("x/c")
-    plt.show()
-    # gen.generate_population(2)
+    population = gen.generate_population(20)
+    gen.plot_population(population)
 
 
 if __name__ == "__main__":
-    while (True):
-        _example()
+    _example()

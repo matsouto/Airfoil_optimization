@@ -53,7 +53,7 @@ class bezier_airfoil:
         Calcula os parâmetros de bezier.
 
         Recebe graus diferentes para o intra e extradorso já que 
-        para perfis arquiados, o intradorso necessita de mais pontos que o
+        para perfis arqueados, o intradorso necessita de mais pontos que o
         extradorso, assim, pode-se diminuir a quantidade de pontos totais 
         e melhorar a velocidade de convergência do algoritmo otimizador.
         """
@@ -170,7 +170,6 @@ def _example():
     cp_upper, cp_lower = airfoil.get_bezier_cp(
         8, 16)  # Args: Grau do polinômio
     # cp_lower[7] = [cp_lower[7][0]+0.1, cp_lower[7][1]]
-    print(cp_lower)
 
     """Gera listas com os pontos de controle"""
     x_cp_list_upper = [i[0] for i in cp_upper]
@@ -185,7 +184,7 @@ def _example():
     y_cp_lower = np.array(y_cp_list_lower)
 
     """Plota pontos de controle"""
-    # plt.plot(x_cp_upper, y_cp_upper, 'k--o', label='Control Points')
+    plt.plot(x_cp_upper, y_cp_upper, 'k--o', label='Control Points - Upper')
     # plt.plot(x_cp_lower, y_cp_lower, 'k--o')
 
     """Plota a curva de bezier"""
@@ -195,11 +194,11 @@ def _example():
 
     X_bezier_lower, Y_bezier_lower = aux.generate_bezier_curve(
         cp_lower, nTimes=len(airfoil.X_lower))
-    plt.plot(X_bezier_lower, Y_bezier_lower, 'g--', label='Bezier')
+    # plt.plot(X_bezier_lower, Y_bezier_lower, 'g--', label='Bezier')
 
     X_bezier = np.concatenate((X_bezier_upper, X_bezier_lower))
     Y_bezier = np.concatenate((Y_bezier_upper, Y_bezier_lower))
-    # plt.plot(X_bezier, Y_bezier, 'g--', label='Bezier')
+    plt.plot(X_bezier, Y_bezier, 'g--', label='Bezier')
 
     plt.legend()
     plt.xlabel("x/c")
