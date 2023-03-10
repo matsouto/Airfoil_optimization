@@ -36,6 +36,10 @@ class bezier_airfoil:
         self.Y_upper = self.Y[:int(len(self.Y)/2)]
         self.Y_lower = self.Y[int(len(self.Y)/2):]
 
+    def set_genome_points(self, coords_upper: list, coords_lower: list):
+        self.genome_upper = coords_upper
+        self.genome_lower = coords_lower
+
     def set_X_upper(self, xvalue):
         self.X_upper = xvalue
 
@@ -92,9 +96,9 @@ class bezier_airfoil:
         self.cp_lower = cp_lower
         return self.cp_upper, self.cp_lower
 
-    def simulate(self, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
+    def simulate(self, airfoil_path=str, name=str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
         """Roda simulação pelo XFOIL"""
-        run_xfoil(self.airfoil_path, self.original_name,
+        run_xfoil(airfoil_path, name,
                   alpha_i, alpha_f, alpha_step, Re, n_iter)
         self.sim = True
 
@@ -107,51 +111,34 @@ class bezier_airfoil:
             """ Ref: https://github.com/ashokolarov/Genetic-airfoil"""
             polar_data = np.array(
                 [np.array([float(x) for x in line.split()]) for line in file.readlines()[12:]])
-            alpha = polar_data[:, 0]
-            Cl = polar_data[:, 1]
-            Cd = polar_data[:, 2]
 
-            idx = np.argmax(Cl*Cl*Cl / Cd / Cd)
-            ClCd = Cl[idx] / Cd[idx]
-            Cl3Cd2 = (Cl[idx])**3 / (Cd[idx])**2
+            """Descarta os perfis que não convergirem"""
+            try:
+                alpha = polar_data[:, 0]
+                Cl = polar_data[:, 1]
+                Cd = polar_data[:, 2]
+                self.converged = True  # Estado que determina se o perfil convergiu na análise
 
-            stall_idx = np.argmax(Cl)
-            alpha_range = alpha[stall_idx] - alpha[idx]
+                idx = np.argmax(Cl*Cl*Cl / Cd / Cd)
+                ClCd_max = Cl[idx] / Cd[idx]
+                Cl3Cd2_max = (Cl[idx])**3 / (Cd[idx])**2
 
-            self.alpha = alpha
-            self.Cl = Cl
-            self.Cd = Cd
-            self.ClCd = ClCd
-            self.Cl3Cd2 = Cl3Cd2
-            self.stall_angle = stall_idx
-            self.alpha_range = alpha_range
+                stall_idx = np.argmax(Cl)
+                alpha_range = alpha[stall_idx] - alpha[idx]
 
-        return ClCd, Cl3Cd2, alpha_range
+                self.alpha = alpha
+                self.Cl = Cl
+                self.Cd = Cd
+                self.ClCd_max = ClCd_max
+                self.Cl3Cd2_max = Cl3Cd2_max
+                self.stall_angle = stall_idx
+                self.alpha_range = alpha_range
 
-    def save_as_dat_from_bezier(self, name="generated_airfoil"):
-        """ Salva o perfil de bezier como um arquivo .dat"""
+            except:
+                self.converged = False
+                return None, None, None
 
-        self.X_bezier_upper, self.Y_bezier_upper = aux.generate_bezier_curve(
-            self.cp_upper, nTimes=len(self.X_upper))
-        self.X_bezier_lower, self.Y_bezier_lower = aux.generate_bezier_curve(
-            self.cp_lower, nTimes=len(self.X_lower))
-
-        data_upper = np.array([np.around(self.X_bezier_upper, 6).astype(
-            'str'), np.around(self.Y_bezier_upper, 6).astype('str')]).transpose()
-        data_lower = np.array([np.around(self.X_bezier_lower, 6).astype(
-            'str'), np.around(self.Y_bezier_lower, 6).astype('str')]).transpose()
-
-        if '.dat' not in name:
-            name += '.dat'
-
-        data = np.concatenate((data_upper, data_lower))
-
-        header = "Airfoil"  # Melhorar isso aqui
-        np.savetxt(f'airfoils/{name}', data,
-                   header=header, comments="", fmt="%s")
-
-    def __str__(self):
-        return self.original_name
+        return ClCd_max, Cl3Cd2_max, alpha_range
 
 
 def _example():
@@ -215,11 +202,8 @@ def _example():
 
     plt.show()
 
-    airfoil.save_as_dat_from_bezier()
-
-    # airfoil.simulate()
+    # airfoil.simulate(airfoil.airfoil_path, airfoil.original_name)
     # plot_polar()
-
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":

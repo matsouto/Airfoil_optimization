@@ -12,7 +12,7 @@ https://github.com/karanchawla/Airfoil-Optimization/tree/master/xfoil
 """
 
 
-def run_xfoil(airfoil_path, airfoil_name, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
+def run_xfoil(airfoil_path, airfoil_name="Default Airfoil", alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
 
     if sys.platform.startswith('win32'):
         XFOIL_BIN = "xfoil.exe"

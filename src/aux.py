@@ -22,7 +22,7 @@ def bernstein_poly(i, n, t):
     return comb(n, i) * (t**i) * (1 - t)**(n-i)
 
 
-def generate_bezier_curve(points, nTimes=50):
+def generate_bezier_curve(points, nTimes=80):
     """
        Given a set of control points, return the
        bezier curve defined by the control points.
@@ -49,3 +49,25 @@ def generate_bezier_curve(points, nTimes=50):
     yvals = np.dot(yPoints, polynomial_array)
 
     return xvals, yvals
+
+
+def save_as_dat_from_bezier(bezier_upper: list, bezier_lower: list, name="generated_airfoil"):
+    """ Salva o perfil de bezier como um arquivo .dat"""
+    X_bezier_upper, Y_bezier_upper = generate_bezier_curve(
+        bezier_upper)
+    X_bezier_lower, Y_bezier_lower = generate_bezier_curve(
+        bezier_lower)
+
+    data_upper = np.array([np.around(X_bezier_upper, 6).astype(
+        'str'), np.around(Y_bezier_upper, 6).astype('str')]).transpose()
+    data_lower = np.array([np.around(X_bezier_lower, 6).astype(
+        'str'), np.around(Y_bezier_lower, 6).astype('str')]).transpose()
+
+    if '.dat' not in name:
+        name += '.dat'
+
+    data = np.concatenate((data_upper, data_lower))
+
+    header = "Airfoil"  # Melhorar isso aqui
+    np.savetxt(f'airfoils/{name}', data,
+               header=header, comments="", fmt="%s")

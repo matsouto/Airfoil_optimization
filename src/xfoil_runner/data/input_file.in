@@ -1,13 +1,13 @@
 LOAD airfoils/generated_airfoil.dat
-Gen_Airfoil
+Genome Airfoil
 PANE
 OPER
-Visc 1000000
+Visc 200000
 PACC
 src/xfoil_runner/data/polar_file.txt
 
 ITER 100
-ASeq 0 10 0.25
+ASeq 0 16 0.5
 
 
 quit
