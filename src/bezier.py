@@ -96,13 +96,13 @@ class bezier_airfoil:
         self.cp_lower = cp_lower
         return self.cp_upper, self.cp_lower
 
-    def simulate(self, airfoil_path=str, name=str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="./xfoil_runner/data/genome_polar.txt"):
+    def simulate(self, airfoil_path=str, name=str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="src/xfoil_runner/data/genome_polar.txt"):
         """Roda simulação pelo XFOIL"""
         run_xfoil(airfoil_path, name,
                   alpha_i, alpha_f, alpha_step, Re, n_iter, polar_path=polar_path)
         self.sim = True
 
-    def get_opt_params(self, polar_path="./xfoil_runner/data/genome_polar.txt"):
+    def get_opt_params(self, polar_path="src/xfoil_runner/data/genome_polar.txt"):
 
         if not self.sim:
             raise ValueError("O perfil precisa ser simulado antes")
@@ -144,7 +144,7 @@ class bezier_airfoil:
 
 def _example():
     airfoil = bezier_airfoil()
-    airfoil.set_coords_from_dat("../airfoils/s1223.dat")
+    airfoil.set_coords_from_dat("airfoils/s1223.dat")
     # airfoil.set_X(np.linspace(0, 15))
     # airfoil.set_Y(np.cos(np.linspace(0, 15)))
 

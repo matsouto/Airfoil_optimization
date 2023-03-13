@@ -1,10 +1,10 @@
-LOAD ../airfoils/generated_airfoil.dat
+LOAD airfoils/generated_airfoil.dat
 Genome Airfoil
 PANE
 OPER
 Visc 200000
 PACC
-./xfoil_runner/data/genome_polar.txt
+src/xfoil_runner/data/genome_polar.txt
 
 ITER 100
 ASeq 0 16 0.5

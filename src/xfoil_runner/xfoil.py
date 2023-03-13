@@ -12,7 +12,7 @@ https://github.com/karanchawla/Airfoil-Optimization/tree/master/xfoil
 """
 
 
-def run_xfoil(airfoil_path, airfoil_name="Default Airfoil", alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="./xfoil_runner/data/genome_polar.txt"):
+def run_xfoil(airfoil_path, airfoil_name="Default Airfoil", alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="src/xfoil_runner/data/genome_polar.txt"):
 
     if sys.platform.startswith('win32'):
         XFOIL_BIN = "xfoil.exe"
@@ -25,7 +25,7 @@ def run_xfoil(airfoil_path, airfoil_name="Default Airfoil", alpha_i=0, alpha_f=1
     if os.path.exists(polar_path):
         os.remove(polar_path)
 
-    with open("./xfoil_runner/data/input_file.in", 'w') as file:
+    with open("src/xfoil_runner/data/input_file.in", 'w') as file:
         file.write(f"LOAD {airfoil_path}\n")
         file.write(airfoil_name + '\n')
         file.write("PANE\n")
@@ -40,12 +40,12 @@ def run_xfoil(airfoil_path, airfoil_name="Default Airfoil", alpha_i=0, alpha_f=1
         file.write("quit\n")
 
     subprocess.call(
-        f"{XFOIL_BIN} < ./xfoil_runner/data/input_file.in", shell=True)
+        f"{XFOIL_BIN} < src/xfoil_runner/data/input_file.in", shell=True)
 
     polar_data = np.loadtxt(polar_path, skiprows=12)
 
 
-def plot_polar(axs, polar_path="./xfoil_runner/data/genome_polar.txt"):
+def plot_polar(axs, polar_path="src/xfoil_runner/data/genome_polar.txt"):
     """
     Plot Cl/alpha, Cd/alpha and Cl/Cd and Cl^3/Cd^2 from a certain analysis.
     :param polar_txt: .txt file where xfoil polar data is stored.
@@ -73,7 +73,7 @@ def plot_polar(axs, polar_path="./xfoil_runner/data/genome_polar.txt"):
 
 
 def _example():
-    run_xfoil("../airfoils/generated_airfoil.dat", "Gen_Airfoil")
+    run_xfoil("airfoils/generated_airfoil.dat", "Gen_Airfoil")
     plot_polar()
 
 

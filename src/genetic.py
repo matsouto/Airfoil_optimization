@@ -2,7 +2,7 @@ from bezier import bezier_airfoil
 import os
 import aux
 from random import uniform
-from xfoil_runner.xfoil import run_xfoil, plot_polar
+from xfoil_runner.xfoil import run_xfoil
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -110,14 +110,12 @@ class genetic_algorithm:
         plt.show()
 
     @staticmethod
-    def fitness(genome: bezier_airfoil, initial_airfoil: bezier_airfoil, weights=(0.5, 0.5, 0.2)):
-        """Talvez seja melhor calcular a diferença de área sob a curva para o Cl3Cd2 e Cl/alpha"""
+    def fitness(genome: bezier_airfoil, initial_airfoil: bezier_airfoil, weights=(0.5, 0.3, 0.2)):
         if genome.converged == True:
             """Calcula o custo baseado no perfil inicial"""
-            fitness = weights[0]*(
-                genome.Cl_max / initial_airfoil.Cl_max) + \
+            fitness = weights[0]*(genome.Cl3Cd2_max / initial_airfoil.Cl3Cd2_max) + \
                 weights[1]*(genome.ClCd_max / initial_airfoil.ClCd_max) + \
-                0*(genome.stall_angle/initial_airfoil.stall_angle)
+                weights[2]*(genome.stall_angle/initial_airfoil.stall_angle)
             return fitness
         else:
             """Se o genoma não convergir na análise, ele é descartado"""
@@ -135,12 +133,11 @@ def _example():
 
     """Cria um perfil a partir de um .dat e obtem os pontos de controle de Bezier"""
     initial_airfoil = bezier_airfoil()
-    initial_airfoil.set_coords_from_dat("../airfoils/s1223.dat")
+    initial_airfoil.set_coords_from_dat("airfoils/s1223.dat")
     initial_airfoil.get_bezier_cp(8, 16)
     initial_airfoil.simulate(initial_airfoil.airfoil_path,
-                             initial_airfoil.original_name, alpha_f=alpha_f, alpha_step=alpha_step, Re=Re, polar_path="./xfoil_runner/data/initial_polar.txt")
-    initial_airfoil.get_opt_params(
-        polar_path="./xfoil_runner/data/initial_polar.txt")
+                             initial_airfoil.original_name, alpha_f=alpha_f, alpha_step=alpha_step, Re=Re)
+    initial_airfoil.get_opt_params()
 
     gen = genetic_algorithm(initial_airfoil, MAX_CHANGE=0.04)
     fitness = gen.fitness(initial_airfoil, initial_airfoil)
@@ -157,18 +154,14 @@ def _example():
     """Gera o arquivo .dat e simula o genoma"""
     aux.save_as_dat_from_bezier(
         genome.genome_upper, genome.genome_lower, "generated_airfoil")
-    genome.simulate("../airfoils/generated_airfoil.dat",
-                    "Genome Airfoil", alpha_f=alpha_f, alpha_step=alpha_step, Re=Re, polar_path="./xfoil_runner/data/genome_polar.txt")
+    genome.simulate("airfoils/generated_airfoil.dat",
+                    "Genome Airfoil", alpha_f=alpha_f, alpha_step=alpha_step, Re=Re)
     genome.get_opt_params()
 
     """Calcula o fitness do genoma"""
     fitness = gen.fitness(genome, initial_airfoil)
     os.system('cls' if os.name == 'nt' else 'clear')
     print(fitness)
-    fig, axs = plt.subplots(2, 2)
-    plot_polar(axs, "./xfoil_runner/data/initial_polar.txt")
-    plot_polar(axs, "./xfoil_runner/data/genome_polar.txt")
-    plt.show()
 
 
 if __name__ == "__main__":
