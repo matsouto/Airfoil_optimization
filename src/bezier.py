@@ -96,13 +96,13 @@ class bezier_airfoil:
         self.cp_lower = cp_lower
         return self.cp_upper, self.cp_lower
 
-    def simulate(self, airfoil_path=str, name=str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100):
+    def simulate(self, airfoil_path=str, name=str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="./xfoil_runner/data/genome_polar.txt"):
         """Roda simulação pelo XFOIL"""
         run_xfoil(airfoil_path, name,
-                  alpha_i, alpha_f, alpha_step, Re, n_iter)
+                  alpha_i, alpha_f, alpha_step, Re, n_iter, polar_path=polar_path)
         self.sim = True
 
-    def get_opt_params(self, polar_path="src/xfoil_runner/data/polar_file.txt"):
+    def get_opt_params(self, polar_path="./xfoil_runner/data/genome_polar.txt"):
 
         if not self.sim:
             raise ValueError("O perfil precisa ser simulado antes")
@@ -119,31 +119,32 @@ class bezier_airfoil:
                 Cd = polar_data[:, 2]
                 self.converged = True  # Estado que determina se o perfil convergiu na análise
 
-                idx = np.argmax(Cl*Cl*Cl / Cd / Cd)
-                ClCd_max = Cl[idx] / Cd[idx]
-                Cl3Cd2_max = (Cl[idx])**3 / (Cd[idx])**2
+                Cl_max = max(Cl)
+                ClCd = Cl / Cd
+                Cl3Cd2 = (Cl)**3 / (Cd)**2
+                ClCd_max = max(ClCd)
+                Cl3Cd2_max = max(Cl3Cd2)
 
-                stall_idx = np.argmax(Cl)
-                alpha_range = alpha[stall_idx] - alpha[idx]
+                stall_angle = alpha[np.argmax(Cl)]
 
                 self.alpha = alpha
                 self.Cl = Cl
                 self.Cd = Cd
+                self.Cl_max = Cl_max
                 self.ClCd_max = ClCd_max
                 self.Cl3Cd2_max = Cl3Cd2_max
-                self.stall_angle = stall_idx
-                self.alpha_range = alpha_range
+                self.stall_angle = stall_angle
 
             except:
                 self.converged = False
                 return None, None, None
 
-        return ClCd_max, Cl3Cd2_max, alpha_range
+        return ClCd_max, Cl3Cd2_max, stall_angle
 
 
 def _example():
     airfoil = bezier_airfoil()
-    airfoil.set_coords_from_dat("airfoils/s1223.dat")
+    airfoil.set_coords_from_dat("../airfoils/s1223.dat")
     # airfoil.set_X(np.linspace(0, 15))
     # airfoil.set_Y(np.cos(np.linspace(0, 15)))
 
@@ -204,6 +205,7 @@ def _example():
 
     # airfoil.simulate(airfoil.airfoil_path, airfoil.original_name)
     # plot_polar()
+
 
     # Se esse arquivo for executado, rode _example()
 if __name__ == "__main__":

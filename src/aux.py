@@ -69,5 +69,5 @@ def save_as_dat_from_bezier(bezier_upper: list, bezier_lower: list, name="genera
     data = np.concatenate((data_upper, data_lower))
 
     header = "Airfoil"  # Melhorar isso aqui
-    np.savetxt(f'airfoils/{name}', data,
+    np.savetxt(f'../airfoils/{name}', data,
                header=header, comments="", fmt="%s")
