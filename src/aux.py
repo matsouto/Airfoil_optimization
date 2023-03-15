@@ -51,7 +51,7 @@ def generate_bezier_curve(points, nTimes=80):
     return xvals, yvals
 
 
-def save_as_dat_from_bezier(bezier_upper: list, bezier_lower: list, name="generated_airfoil"):
+def save_as_dat_from_bezier(bezier_upper: list, bezier_lower: list, name="generated_airfoil", header="Airfoil"):
     """ Salva o perfil de bezier como um arquivo .dat"""
     X_bezier_upper, Y_bezier_upper = generate_bezier_curve(
         bezier_upper)
@@ -68,6 +68,5 @@ def save_as_dat_from_bezier(bezier_upper: list, bezier_lower: list, name="genera
 
     data = np.concatenate((data_upper, data_lower))
 
-    header = "Airfoil"  # Melhorar isso aqui
     np.savetxt(f'airfoils/{name}', data,
                header=header, comments="", fmt="%s")

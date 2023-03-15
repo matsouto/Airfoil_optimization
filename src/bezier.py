@@ -18,8 +18,6 @@ Innovative Design and Development Practices in Aerospace and Automotive Engineer
 
 class bezier_airfoil:
 
-    all = []
-
     def __init__(self):
         """Para debug"""
         self.sim = False  # Informa se o perfil já foi simulado
@@ -28,7 +26,7 @@ class bezier_airfoil:
         """ Converte o .dat para coordenadas np.array X e Y """
         self.airfoil_path = airfoil_path
         df = read_csv(airfoil_path, names=("X", "Y"), sep='\s+')
-        self.original_name = df.iloc[0]["X"]
+        self.name = df.iloc[0]["X"]
         self.X = df["X"].drop(0).to_numpy(float)
         self.Y = df["Y"].drop(0).to_numpy(float)
         self.X_upper = self.X[:int(len(self.X)/2)]
@@ -51,6 +49,12 @@ class bezier_airfoil:
 
     def set_Y_lower(self, yvalue):
         self.Y_lower = yvalue
+
+    def set_name(self, name):
+        self.name = name
+
+    def set_fitness(self, fitness):
+        self.fitness = fitness
 
     def get_bezier_cp(self, degree_upper: int, degree_lower: int):
         """
@@ -96,13 +100,13 @@ class bezier_airfoil:
         self.cp_lower = cp_lower
         return self.cp_upper, self.cp_lower
 
-    def simulate(self, airfoil_path=str, name=str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="src/xfoil_runner/data/genome_polar.txt"):
+    def simulate(self, airfoil_path: str, name: str, alpha_i=0, alpha_f=10, alpha_step=0.25, Re=1000000, n_iter=100, polar_path="src/xfoil_runner/data/genome_polar.txt"):
         """Roda simulação pelo XFOIL"""
         run_xfoil(airfoil_path, name,
                   alpha_i, alpha_f, alpha_step, Re, n_iter, polar_path=polar_path)
         self.sim = True
 
-    def get_opt_params(self, polar_path="src/xfoil_runner/data/genome_polar.txt"):
+    def get_opt_params(self, polar_path="src/xfoil_runner/data/genome_polar.txt", min_points_to_converged=20):
 
         if not self.sim:
             raise ValueError("O perfil precisa ser simulado antes")
@@ -115,31 +119,34 @@ class bezier_airfoil:
             """Descarta os perfis que não convergirem"""
             try:
                 alpha = polar_data[:, 0]
-                Cl = polar_data[:, 1]
-                Cd = polar_data[:, 2]
-                self.converged = True  # Estado que determina se o perfil convergiu na análise
+                if len(alpha) < min_points_to_converged:
+                    self.converged = False
+                else:
+                    Cl = polar_data[:, 1]
+                    Cd = polar_data[:, 2]
+                    self.converged = True  # Estado que determina se o perfil convergiu na análise
 
-                Cl_max = max(Cl)
-                ClCd = Cl / Cd
-                Cl3Cd2 = (Cl)**3 / (Cd)**2
-                ClCd_max = max(ClCd)
-                Cl3Cd2_max = max(Cl3Cd2)
+                    Cl_integration = np.trapz(Cl, alpha)
+                    Cd_integration = np.trapz(Cd, alpha)
+                    Cl_max = max(Cl)
+                    # ClCd = Cl / Cd
+                    # Cl3Cd2 = (Cl)**3 / (Cd)**2
+                    # ClCd_max = max(ClCd)
+                    # Cl3Cd2_max = max(Cl3Cd2)
 
-                stall_angle = alpha[np.argmax(Cl)]
+                    stall_angle = alpha[np.argmax(Cl)]
 
-                self.alpha = alpha
-                self.Cl = Cl
-                self.Cd = Cd
-                self.Cl_max = Cl_max
-                self.ClCd_max = ClCd_max
-                self.Cl3Cd2_max = Cl3Cd2_max
-                self.stall_angle = stall_angle
-
+                    self.alpha = alpha
+                    self.Cl = Cl
+                    self.Cd = Cd
+                    self.Cl_integration = Cl_integration
+                    self.Cd_integration = Cd_integration
+                    # self.Cl_max = Cl_max
+                    # self.ClCd_max = ClCd_max
+                    # self.Cl3Cd2_max = Cl3Cd2_max
+                    self.stall_angle = stall_angle
             except:
                 self.converged = False
-                return None, None, None
-
-        return ClCd_max, Cl3Cd2_max, stall_angle
 
 
 def _example():
