@@ -2,7 +2,8 @@ import aux
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from random import uniform, choices
+import random
+from copy import copy
 from xfoil_runner.xfoil import run_xfoil, plot_polar
 from bezier import bezier_airfoil
 
@@ -12,12 +13,14 @@ e no vídeo https://www.youtube.com/watch?v=nhT56blfRpE"""
 
 
 class genetic_algorithm:
-    def __init__(self, initial_airfoil: bezier_airfoil, MAX_CHANGE: float, simulation_params: list):
+    def __init__(self, initial_airfoil: bezier_airfoil, MAX_CHANGE: float, simulation_params: list, skip_cp_upper: int = 2, skip_cp_lower: int = 4):
         self.initial_cp_upper = initial_airfoil.cp_upper
         self.initial_cp_lower = initial_airfoil.cp_lower
         self.degree_upper = initial_airfoil.degree_upper
         self.degree_lower = initial_airfoil.degree_lower
 
+        self.skip_cp_upper = skip_cp_upper
+        self.skip_cp_lower = skip_cp_lower
         self.MAX_CHANGE = MAX_CHANGE
 
         self.alpha_f = simulation_params[0]
@@ -25,8 +28,10 @@ class genetic_algorithm:
         self.Re = simulation_params[2]
 
         self.n_genomes = 0  # Número de genomas criados
+        self.n_crossovers = 0  # Número de vezes que o crossover ocorreu
+        self.n_mutation = 0  # Número de mutações em genes
 
-    def generate_genome(self, skip_cp_upper=2, skip_cp_lower=4):
+    def generate_genome(self):
         """Gera um perfil e atribui caracteristicas aleatórias.
         Mantém alguns pontos no bordo de fuga e de ataque
         inalterados com base na variável 'skip_cp'.
@@ -38,35 +43,35 @@ class genetic_algorithm:
         genome_upper = []
         genome_lower = []
 
-        if (skip_cp_upper > self.degree_upper//2) or (skip_cp_lower > self.degree_lower//2):
+        if (self.skip_cp_upper > self.degree_upper//2) or (self.skip_cp_lower > self.degree_lower//2):
             raise ValueError(
                 '"skip_cp" precisa ser menor que a metade do grau de bezier')
 
-        for i in range(skip_cp_upper):
+        for i in range(self.skip_cp_upper):
             genome_upper.extend(
                 [self.initial_cp_upper[i]])
 
-        for i in range(skip_cp_lower):
+        for i in range(self.skip_cp_lower):
             genome_lower.extend(
                 [self.initial_cp_lower[i]])
 
         """Realiza a variação dos parâmetros aleatoriamente"""
 
-        for i in self.initial_cp_upper[skip_cp_upper:self.degree_upper - skip_cp_upper + 1]:
-            genome_upper.extend([[i[0] + uniform(-self.MAX_CHANGE, self.MAX_CHANGE),
-                                  i[1] + uniform(-self.MAX_CHANGE, self.MAX_CHANGE)]])
+        for i in self.initial_cp_upper[self.skip_cp_upper:self.degree_upper - self.skip_cp_upper + 1]:
+            genome_upper.extend([[i[0] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE),
+                                  i[1] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE)]])
 
-        for i in self.initial_cp_lower[skip_cp_lower:self.degree_lower - skip_cp_lower + 1]:
-            genome_lower.extend([[i[0] + uniform(-self.MAX_CHANGE, self.MAX_CHANGE),
-                                  i[1] + uniform(-self.MAX_CHANGE, self.MAX_CHANGE)]])
+        for i in self.initial_cp_lower[self.skip_cp_lower:self.degree_lower - self.skip_cp_lower + 1]:
+            genome_lower.extend([[i[0] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE),
+                                  i[1] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE)]])
 
-        for i in range(skip_cp_upper):
+        for i in range(self.skip_cp_upper):
             genome_upper.extend(
-                [self.initial_cp_upper[self.degree_upper - skip_cp_upper + 1 + i]])
+                [self.initial_cp_upper[self.degree_upper - self.skip_cp_upper + 1 + i]])
 
-        for i in range(skip_cp_lower):
+        for i in range(self.skip_cp_lower):
             genome_lower.extend(
-                [self.initial_cp_lower[self.degree_lower - skip_cp_lower + 1 + i]])
+                [self.initial_cp_lower[self.degree_lower - self.skip_cp_lower + 1 + i]])
 
         genome = bezier_airfoil()
         genome.set_name(f"Generated Airfoil {self.n_genomes}")
@@ -74,7 +79,7 @@ class genetic_algorithm:
 
         """Gera o arquivo .dat e simula o genoma"""
         aux.save_as_dat_from_bezier(
-            genome.genome_upper, genome.genome_lower, "generated_airfoil", header=f"Generated Airfoil {self.n_genomes}")
+            genome.cp_upper, genome.cp_lower, "generated_airfoil", header=f"Generated Airfoil {self.n_genomes}")
         genome.simulate(airfoil_path="airfoils/generated_airfoil.dat",
                         name=f"Generated Airfoil {self.n_genomes}",
                         alpha_f=self.alpha_f,
@@ -149,6 +154,10 @@ class genetic_algorithm:
         if np.sum(fitness_weights) != 1:
             raise ValueError('Os pesos fornecidos precisam somar 1.')
 
+        if len(population) < 2:
+            raise ValueError(
+                f"Não foi possível selecionar um par, pois a população possui {len(population)} genomas apenas.")
+
         """Os pesos utilizados para a seleção são os valores de fitness
         de cada perfil elevado à quinta potência, isso faz com que perfis com maior
         fitness tenham ainda mais probabilidade de serem escolhidos"""
@@ -156,14 +165,73 @@ class genetic_algorithm:
             if genome.converged == False:
                 population.remove(genome)
 
-        return choices(
+        return random.choices(
             population=population,
-            weights=[self.fitness(genome, initial_airfoil, fitness_weights) ** 5
+            weights=[self.fitness(genome, initial_airfoil, fitness_weights)**6
                      for genome in population],
             k=2
         )
 
-    @staticmethod
+    def crossover(self, parents_genome: list, probability: float):
+        """Gera dois genomas cruzados a partir de dois genomas parentes a partir de uma certa probabilidade"""
+        genome_a, genome_b = copy(parents_genome[0]), copy(parents_genome[1])
+
+        if (len(genome_a.cp_upper) != len(genome_b.cp_upper)) or (len(genome_a.cp_lower) != len(genome_b.cp_lower)):
+            raise ValueError(
+                "Pontos de controle de genomas pais precisam ter o mesmo tamanho.")
+
+        length_upper = len(genome_a.cp_upper)
+        length_lower = len(genome_a.cp_lower)
+
+        if random.random() <= probability:
+            self.n_crossovers = self.n_crossovers + 1
+            """Index é o ponto onde será realizado o cross over"""
+            index_upper = random.randint(1, length_upper - 1)
+            index_lower = random.randint(1, length_lower - 1)
+
+            a_cp_upper = genome_a.cp_upper
+            a_cp_lower = genome_a.cp_lower
+            b_cp_upper = genome_b.cp_upper
+            b_cp_lower = genome_b.cp_lower
+
+            genome_a.set_genome_points(
+                a_cp_upper[0:index_upper] + b_cp_upper[index_upper:], a_cp_lower[0:index_lower] + b_cp_lower[index_lower:])
+
+            genome_b.set_genome_points(
+                b_cp_upper[0:index_upper] + a_cp_upper[index_upper:], b_cp_lower[0:index_lower] + a_cp_lower[index_lower:])
+
+            return [genome_a, genome_b]
+        else:
+            return parents_genome
+
+    def mutate(self, genome: bezier_airfoil, probability: float, n_genes: int = 1):
+        """Realiza a mutação de um gene a partir de uma certa probabilidade.
+            - n_genes: Número de genes que serão mutados
+        """
+
+        if random.random() <= probability:
+            self.n_mutation = self.n_mutation + 1
+
+            cp_upper = copy(genome.cp_upper)
+            cp_lower = copy(genome.cp_lower)
+
+            for _ in range(n_genes):
+
+                index_upper = random.randrange(
+                    self.skip_cp_upper, len(cp_upper) - self.skip_cp_upper)
+
+                index_lower = random.randrange(
+                    self.skip_cp_lower, len(cp_lower) - self.skip_cp_lower)
+
+                cp_upper[index_upper] = [cp_upper[index_upper][0] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE),
+                                         cp_upper[index_upper][1] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE)]
+
+                cp_lower[index_lower] = [cp_lower[index_lower][0] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE),
+                                         cp_lower[index_lower][1] + random.uniform(-self.MAX_CHANGE, self.MAX_CHANGE)]
+
+            genome.set_genome_points(cp_upper, cp_lower)
+
+    @ staticmethod
     def run_opt_genetic(cp):
         pass
 
@@ -178,7 +246,11 @@ def _example():
     initial_airfoil.set_coords_from_dat("airfoils/s1223.dat")
     initial_airfoil.get_bezier_cp(8, 16)
     initial_airfoil.simulate(initial_airfoil.airfoil_path,
-                             initial_airfoil.name, alpha_f=alpha_f, alpha_step=alpha_step, Re=Re, polar_path="src/xfoil_runner/data/initial_polar.txt")
+                             initial_airfoil.name,
+                             alpha_f=alpha_f,
+                             alpha_step=alpha_step,
+                             Re=Re,
+                             polar_path="src/xfoil_runner/data/initial_polar.txt")
     initial_airfoil.get_opt_params(
         polar_path="src/xfoil_runner/data/initial_polar.txt")
 
@@ -188,7 +260,7 @@ def _example():
         simulation_params=[alpha_f, alpha_step, Re]
     )
 
-    population = gen.generate_population(4)
+    population = gen.generate_population(3)
     # plt.figure(figsize=(9, 3))
     # gen.plot_population(population)
 
@@ -203,6 +275,11 @@ def _example():
     os.system('cls' if os.name == 'nt' else 'clear')
     print(pair)
 
+    # gen.crossover(pair, 1)
+
+    initial_airfoil_copy = copy(initial_airfoil)
+    gen.mutate(initial_airfoil, 1)
+
     plt.show()
 
     """Cria uma instancia de perfil nova para o genoma"""
@@ -212,8 +289,8 @@ def _example():
 
     """Gera o arquivo .dat e simula o genoma"""
     # aux.save_as_dat_from_bezier(
-    #     genome.genome_upper
-    #     , genome.genome_lower, "generated_airfoil")
+    #     genome.cp_upper
+    #     , genome.cp_lower, "generated_airfoil")
     # genome.simulate("airfoils/generated_airfoil.dat",
     #                 "Genome Airfoil", alpha_f=alpha_f, alpha_step=alpha_step, Re=Re, polar_path="src/xfoil_runner/data/genome_polar.txt")
     # genome.get_opt_params()

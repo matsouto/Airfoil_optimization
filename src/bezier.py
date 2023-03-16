@@ -35,8 +35,8 @@ class bezier_airfoil:
         self.Y_lower = self.Y[int(len(self.Y)/2):]
 
     def set_genome_points(self, coords_upper: list, coords_lower: list):
-        self.genome_upper = coords_upper
-        self.genome_lower = coords_lower
+        self.cp_upper = coords_upper
+        self.cp_lower = coords_lower
 
     def set_X_upper(self, xvalue):
         self.X_upper = xvalue
