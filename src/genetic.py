@@ -3,6 +3,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import time
+from tabulate import tabulate
 from copy import copy
 from xfoil_runner.xfoil import run_xfoil, plot_polar
 from bezier import bezier_airfoil
@@ -13,23 +15,45 @@ e no vídeo https://www.youtube.com/watch?v=nhT56blfRpE"""
 
 
 class genetic_algorithm:
-    def __init__(self, initial_airfoil: bezier_airfoil, MAX_CHANGE: float, simulation_params: list, skip_cp_upper: int = 2, skip_cp_lower: int = 4):
+    def __init__(
+        self, initial_airfoil: bezier_airfoil,
+        simulation_params: tuple,
+        MAX_CHANGE: float = 0.04,
+        skip_cp_upper: int = 2, skip_cp_lower: int = 4,
+        crossover_prob: float = 0.8,
+        mutation_prob: float = 0.05, mutation_n_genes: int = 1,
+        fitness_weights: tuple = (0.4, 0.4, 0.2)
+    ):
+
+        self.initial_airfoil = initial_airfoil
         self.initial_cp_upper = initial_airfoil.cp_upper
         self.initial_cp_lower = initial_airfoil.cp_lower
         self.degree_upper = initial_airfoil.degree_upper
         self.degree_lower = initial_airfoil.degree_lower
 
-        self.skip_cp_upper = skip_cp_upper
-        self.skip_cp_lower = skip_cp_lower
-        self.MAX_CHANGE = MAX_CHANGE
+        # ---Opt. Params---
+        self.skip_cp_upper = skip_cp_upper  # Pontos de controle que serão inalterados
+        self.skip_cp_lower = skip_cp_lower  # Pontos de controle que serão inalterados
+        self.MAX_CHANGE = MAX_CHANGE  # Variação máxima da posição dos pontos de controle
+        self.crossover_prob = crossover_prob  # Probabilidade de ocorrência de crossover
+        self.mutation_prob = mutation_prob  # Probabilidade de ocorrência de mutação
+        self.mutation_n_genes = mutation_n_genes  # Número de genes que serão mutados
+        # ------------------
 
-        self.alpha_f = simulation_params[0]
-        self.alpha_step = simulation_params[1]
-        self.Re = simulation_params[2]
+        # ---Simulation Params---
+        self.alpha_f = simulation_params[0]  # Alfa final simulado
+        self.alpha_step = simulation_params[1]  # Variação do alfa
+        self.Re = simulation_params[2]  # Número de Reynolds da simulação
+        self.fitness_weights = fitness_weights  # Pesos para avaliação dos genomas
+        # ------------------------
 
+        # ---Running Data---
         self.n_genomes = 0  # Número de genomas criados
         self.n_crossovers = 0  # Número de vezes que o crossover ocorreu
         self.n_mutation = 0  # Número de mutações em genes
+        self.n_generation = 0  # Número da geração atual
+        self.fitness_progression = [1]  # Progressão da função custo
+        # ------------------
 
     def generate_genome(self):
         """Gera um perfil e atribui caracteristicas aleatórias.
@@ -38,8 +62,6 @@ class genetic_algorithm:
         Isso ajuda a diminuir a ocorrência de perfis impossíveis,
         e agiliza o processo de otimização.
         """
-        self.n_genomes = self.n_genomes + 1
-
         genome_upper = []
         genome_lower = []
 
@@ -77,6 +99,7 @@ class genetic_algorithm:
         genome.set_name(f"Generated Airfoil {self.n_genomes}")
         genome.set_genome_points(genome_upper, genome_lower)
 
+        self.n_genomes = self.n_genomes + 1
         """Gera o arquivo .dat e simula o genoma"""
         aux.save_as_dat_from_bezier(
             genome.cp_upper, genome.cp_lower, "generated_airfoil", header=f"Generated Airfoil {self.n_genomes}")
@@ -135,12 +158,13 @@ class genetic_algorithm:
             ax.plot(X_bezier_lower, Y_bezier_lower, 'g')
 
     @staticmethod
-    def fitness(genome: bezier_airfoil, initial_airfoil: bezier_airfoil, weights=(0.4, 0.4, 0.2)):
+    def fitness(genome: bezier_airfoil, initial_airfoil: bezier_airfoil, fitness_weights: tuple = (0.4, 0.4, 0.2)):
         if genome.converged == True:
             """Calcula o custo baseado no perfil inicial"""
-            fitness = weights[0]*(genome.Cl_integration / initial_airfoil.Cl_integration) + \
-                weights[1]*(initial_airfoil.Cd_integration / genome.Cd_integration) + \
-                weights[2]*(genome.stall_angle/initial_airfoil.stall_angle)
+            fitness = fitness_weights[0]*(genome.Cl_integration / initial_airfoil.Cl_integration) + \
+                fitness_weights[1]*(initial_airfoil.Cd_integration / genome.Cd_integration) + \
+                fitness_weights[2]*(genome.stall_angle /
+                                    initial_airfoil.stall_angle)
             genome.set_fitness(fitness)
             return fitness
         else:
@@ -148,32 +172,48 @@ class genetic_algorithm:
             genome.set_fitness(0)
             return 0
 
-    def select_pair(self, population: list, initial_airfoil: bezier_airfoil, fitness_weights=(0.4, 0.4, 0.2)):
+    def select_pair(self, population: list):
         """Seleciona um par dentre a população. Quanto maior o fitness, maior
         é a chance de ser escolhido"""
-        if np.sum(fitness_weights) != 1:
+
+        _population = copy(population)
+
+        if np.sum(self.fitness_weights) != 1:
             raise ValueError('Os pesos fornecidos precisam somar 1.')
 
-        if len(population) < 2:
+        if len(_population) < 2:
             raise ValueError(
-                f"Não foi possível selecionar um par, pois a população possui {len(population)} genomas apenas.")
+                f"Não foi possível selecionar um par, pois a população possui {len(_population)} genomas apenas.")
 
         """Os pesos utilizados para a seleção são os valores de fitness
-        de cada perfil elevado à quinta potência, isso faz com que perfis com maior
+        de cada perfil elevado à sexta potência, isso faz com que perfis com maior
         fitness tenham ainda mais probabilidade de serem escolhidos"""
-        for genome in population:
+        for genome in _population:
             if genome.converged == False:
-                population.remove(genome)
+                _population.remove(genome)
 
-        return random.choices(
-            population=population,
-            weights=[self.fitness(genome, initial_airfoil, fitness_weights)**6
-                     for genome in population],
-            k=2
+        pair = []
+        pair += random.choices(
+            population=_population,
+            weights=[self.fitness(genome, self.initial_airfoil, self.fitness_weights)**6
+                     for genome in _population],
+            k=1
         )
 
+        """Remove o genoma escolhido para impedir 2 genomas iguais no crossover"""
+        _population.remove(pair[0])
+
+        pair += random.choices(
+            population=_population,
+            weights=[self.fitness(genome, self.initial_airfoil, self.fitness_weights)**6
+                     for genome in _population],
+            k=1
+        )
+
+        return pair
+
     def crossover(self, parents_genome: list, probability: float):
-        """Gera dois genomas cruzados a partir de dois genomas parentes a partir de uma certa probabilidade"""
+        """Gera dois genomas cruzados a partir de dois genomas parentes com uma probabilidade"""
         genome_a, genome_b = copy(parents_genome[0]), copy(parents_genome[1])
 
         if (len(genome_a.cp_upper) != len(genome_b.cp_upper)) or (len(genome_a.cp_lower) != len(genome_b.cp_lower)):
@@ -184,7 +224,7 @@ class genetic_algorithm:
         length_lower = len(genome_a.cp_lower)
 
         if random.random() <= probability:
-            self.n_crossovers = self.n_crossovers + 1
+            self.n_crossovers += 1
             """Index é o ponto onde será realizado o cross over"""
             index_upper = random.randint(1, length_upper - 1)
             index_lower = random.randint(1, length_lower - 1)
@@ -200,9 +240,9 @@ class genetic_algorithm:
             genome_b.set_genome_points(
                 b_cp_upper[0:index_upper] + a_cp_upper[index_upper:], b_cp_lower[0:index_lower] + a_cp_lower[index_lower:])
 
-            return [genome_a, genome_b]
+            return genome_a, genome_b
         else:
-            return parents_genome
+            return parents_genome[0], parents_genome[1]
 
     def mutate(self, genome: bezier_airfoil, probability: float, n_genes: int = 1):
         """Realiza a mutação de um gene a partir de uma certa probabilidade.
@@ -210,7 +250,7 @@ class genetic_algorithm:
         """
 
         if random.random() <= probability:
-            self.n_mutation = self.n_mutation + 1
+            self.n_mutation += 1
 
             cp_upper = copy(genome.cp_upper)
             cp_lower = copy(genome.cp_lower)
@@ -231,15 +271,91 @@ class genetic_algorithm:
 
             genome.set_genome_points(cp_upper, cp_lower)
 
-    @ staticmethod
-    def run_opt_genetic(cp):
-        pass
+    def run_evolution(self, fitness_limit: int = 2, population_size: int = 10, generation_limit: int = 100):
+        population = self.generate_population(population_size)
+        self.initial_population = sorted(
+            population,
+            key=lambda genome: self.fitness(genome, self.initial_airfoil),
+            reverse=True
+        )
+
+        # plt.figure(figsize=(9, 3))
+        # gen.plot_population(population)
+
+        for _ in range(generation_limit):
+            self.n_generation += 1
+
+            population = sorted(
+                population,
+                key=lambda genome: self.fitness(genome, self.initial_airfoil),
+                reverse=True
+            )
+
+            self.fitness_progression.append(population[0].fitness)
+
+            """Critério de parada por limite de custo"""
+            if self.fitness(population[0], self.initial_airfoil) >= fitness_limit:
+                break
+
+            """Mantém os 2 melhores genomas para a proxima população"""
+            next_generation = population[:2]
+
+            """Adiciona os genomas restantes realizando crossover e mutações"""
+            for j in range(int(population_size/2) - 1):
+                parents = self.select_pair(population)
+
+                child_a, child_b = self.crossover(parents, self.crossover_prob)
+                self.mutate(child_a, self.mutation_prob, self.mutation_n_genes)
+                self.mutate(child_b, self.mutation_prob, self.mutation_n_genes)
+
+                self.n_genomes += 1
+
+                aux.save_as_dat_from_bezier(
+                    child_a.cp_upper,
+                    child_a.cp_lower,
+                    name="generated_airfoil",
+                    header=f"Generated Airfoil G{self.n_generation}N{self.n_genomes}")
+                child_a.simulate("airfoils/generated_airfoil.dat",
+                                 "Genome Airfoil",
+                                 alpha_f=self.alpha_f,
+                                 alpha_step=self.alpha_step,
+                                 Re=self.Re,
+                                 polar_path="src/xfoil_runner/data/genome_polar.txt")
+                child_a.get_opt_params()
+
+                self.n_genomes += 1
+
+                aux.save_as_dat_from_bezier(
+                    child_b.cp_upper,
+                    child_b.cp_lower,
+                    name="generated_airfoil",
+                    header=f"Generated Airfoil G{self.n_generation}N{self.n_genomes}")
+                child_b.simulate("airfoils/generated_airfoil.dat",
+                                 "Genome Airfoil",
+                                 alpha_f=self.alpha_f,
+                                 alpha_step=self.alpha_step,
+                                 Re=self.Re,
+                                 polar_path="src/xfoil_runner/data/genome_polar.txt")
+                child_b.get_opt_params()
+
+                next_generation.append(child_a)
+                next_generation.append(child_b)
+
+            population = next_generation
+
+        """Última população encontrada"""
+        self.final_population = sorted(
+            population,
+            key=lambda genome: self.fitness(genome, self.initial_airfoil),
+            reverse=True
+        )
 
 
 def _example():
+    """Parâmetros para a simulação"""
     alpha_step = 0.5
     Re = 200000
-    alpha_f = 16
+    alpha_f = 15
 
     """Cria um perfil a partir de um .dat e obtem os pontos de controle de Bezier"""
     initial_airfoil = bezier_airfoil()
@@ -255,32 +371,42 @@ def _example():
         polar_path="src/xfoil_runner/data/initial_polar.txt")
 
     gen = genetic_algorithm(
-        initial_airfoil,
-        MAX_CHANGE=0.04,
-        simulation_params=[alpha_f, alpha_step, Re]
-    )
-
-    population = gen.generate_population(3)
-    # plt.figure(figsize=(9, 3))
-    # gen.plot_population(population)
-
-    fitness_progression = [[1]]
-
-    pair = gen.select_pair(
-        population=population,
         initial_airfoil=initial_airfoil,
-        fitness_weights=(0.4, 0.4, 0.2)
+        MAX_CHANGE=0.04,
+        simulation_params=(alpha_f, alpha_step, Re),
+        skip_cp_upper=2,
+        skip_cp_lower=4,
+        crossover_prob=0.8,
+        mutation_prob=0.15,
+        mutation_n_genes=2,
+        fitness_weights=(0.5, 0.3, 0.2)
     )
+
+    start = time.time()
+
+    gen.run_evolution(
+        fitness_limit=2,
+        population_size=20,
+        generation_limit=20
+    )
+
+    end = time.time()
 
     os.system('cls' if os.name == 'nt' else 'clear')
-    print(pair)
 
-    # gen.crossover(pair, 1)
+    table = tabulate([['Parameter', 'Initial airfoil', 'Optimized airfoil'],
+                      ['Cl_Integration', gen.initial_airfoil.Cl_integration,
+                          gen.final_population[0].Cl_integration],
+                      ['Cd_Integration', gen.initial_airfoil.Cd_integration,
+                          gen.final_population[0].Cd_integration],
+                      ['Stall_Angle', initial_airfoil.stall_angle, gen.final_population[0].stall_angle]],
+                     headers='firstrow')
+    print(table)
 
-    initial_airfoil_copy = copy(initial_airfoil)
-    gen.mutate(initial_airfoil, 1)
-
-    plt.show()
+    print()
+    print(gen.fitness_progression)
+    print()
+    print(f"Time: {end-start}s")
 
     """Cria uma instancia de perfil nova para o genoma"""
     # genome = bezier_airfoil()
