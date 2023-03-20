@@ -150,19 +150,40 @@ class bezier_airfoil:
 
 
 def _example():
-    airfoil = bezier_airfoil()
-    airfoil.set_coords_from_dat("airfoils/s1223.dat")
+    genome = bezier_airfoil()
+    genome.set_coords_from_dat(
+        "airfoils/results/17_03_2023_23h14m58s/genome_0.dat")
+
+    genome.simulate("airfoils/results/17_03_2023_23h14m58s/genome_0.dat",
+                    "Genome Airfoil", alpha_f=15.5, alpha_step=0.5, Re=200000, polar_path="src/xfoil_runner/data/genome_polar.txt")
+    genome.get_opt_params()
+
+    initial_airfoil = bezier_airfoil()
+    initial_airfoil.set_coords_from_dat("airfoils/s1223.dat")
+    initial_airfoil.simulate("airfoils/s1223.dat",
+                             "S1223", alpha_f=15.5, alpha_step=0.5, Re=200000, polar_path="src/xfoil_runner/data/initial_polar.txt")
+    initial_airfoil.get_opt_params()
+
+    fig, axs = plt.subplots(2, 2)
+    plot_polar(axs, "src/xfoil_runner/data/initial_polar.txt")
+    plot_polar(axs, "src/xfoil_runner/data/genome_polar.txt")
+
     # airfoil.set_X(np.linspace(0, 15))
     # airfoil.set_Y(np.cos(np.linspace(0, 15)))
 
     plt.figure(figsize=(9, 3))
 
-    plt.plot(airfoil.X_upper, airfoil.Y_upper,
-             "r", label='Original Points - Upper')
-    plt.plot(airfoil.X_lower, airfoil.Y_lower,
-             "b", label='Original Points - Lower')
+    plt.plot(genome.X_upper, genome.Y_upper,
+             "r", label=genome.name)
+    plt.plot(genome.X_lower, genome.Y_lower,
+             "r")
 
-    cp_upper, cp_lower = airfoil.get_bezier_cp(
+    plt.plot(initial_airfoil.X_upper, initial_airfoil.Y_upper,
+             "b", label=initial_airfoil.name)
+    plt.plot(initial_airfoil.X_lower, initial_airfoil.Y_lower,
+             "b")
+
+    cp_upper, cp_lower = genome.get_bezier_cp(
         8, 16)  # Args: Grau do polinômio
     # cp_lower[7] = [cp_lower[7][0]+0.1, cp_lower[7][1]]
 
@@ -179,21 +200,21 @@ def _example():
     y_cp_lower = np.array(y_cp_list_lower)
 
     """Plota pontos de controle"""
-    plt.plot(x_cp_upper, y_cp_upper, 'k--o', label='Control Points - Upper')
+    # plt.plot(x_cp_upper, y_cp_upper, 'k--o', label='Control Points - Upper')
     # plt.plot(x_cp_lower, y_cp_lower, 'k--o')
 
     """Plota a curva de bezier"""
     X_bezier_upper, Y_bezier_upper = aux.generate_bezier_curve(
-        cp_upper, nTimes=len(airfoil.X_upper))
+        cp_upper, nTimes=len(genome.X_upper))
     # plt.plot(X_bezier_upper, Y_bezier_upper, 'g--', label='Bezier')
 
     X_bezier_lower, Y_bezier_lower = aux.generate_bezier_curve(
-        cp_lower, nTimes=len(airfoil.X_lower))
+        cp_lower, nTimes=len(genome.X_lower))
     # plt.plot(X_bezier_lower, Y_bezier_lower, 'g--', label='Bezier')
 
     X_bezier = np.concatenate((X_bezier_upper, X_bezier_lower))
     Y_bezier = np.concatenate((Y_bezier_upper, Y_bezier_lower))
-    plt.plot(X_bezier, Y_bezier, 'g--', label='Bezier')
+    # plt.plot(X_bezier, Y_bezier, 'g--', label='Bezier')
 
     plt.legend()
     plt.xlabel("x/c")
@@ -201,7 +222,7 @@ def _example():
 
     """Calcula o erro - PRECISA SER MELHORADO (Ver o artigo)"""
     Y_error = np.abs(Y_bezier_lower -
-                     resample(airfoil.Y_lower, len(Y_bezier_lower)))
+                     resample(genome.Y_lower, len(Y_bezier_lower)))
     print(f'Erro máximo (Curva inferior): {max(Y_error)}')
     # plt.figure()
     # plt.plot(X_bezier_lower, Y_error, 'g--', label="Erro")
@@ -209,9 +230,6 @@ def _example():
     # plt.xlabel("x/c")
 
     plt.show()
-
-    # airfoil.simulate(airfoil.airfoil_path, airfoil.original_name)
-    # plot_polar()
 
 
     # Se esse arquivo for executado, rode _example()
